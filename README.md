@@ -1,5 +1,7 @@
 # fuel-pump-sensorless-bldc
 
+MCU: HT6FM5440
+
 180412
 
 -- add ISR routine to ISR.c
