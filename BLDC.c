@@ -5,108 +5,41 @@
 //static volatile	__hall_type	__attribute__	((at(0x81)));
 //static volatile	_bits bit_var_2		__attribute__	((at(0x82)));
 
-extern uint16 uiHallPeriod, uiHallCnt , uiCommCycle ;
-extern uint8 state_motor, ucCommStep;
-
-
-void 	Var_Init(void);
-void 	delay_10u(uint16 x);
-void 	delay1(uint8 n);
-void 	delay_ms(uint16 x);
-
-void 	Init_IO(void);
-void 	Init_System(void);
-void 	Init_PWM(void);
-void 	Init_Comp(void);
-void 	Init_CAPTM(void);
-void 	Init_TM0(void);
-void 	Init_TM1(void);
-void 	Init_TM3(void);
-void 	Init_Int(void);
-void 	Init_ADC(void);
-void 	Init_TimeBase(void);
-
-void 	ADC_Ch_Sel(uint8 ch);
-void 	ADC_Trig(void);
-void 	ADC_AC_CH(uint8 order, uint8 ch);
-
-
-void 	Motor_Start(void);
-void 	PWM_Duty(uint16 duty);
-void 	PWM_SET(uint8 mode, uint16 duty);
-
-
-void 	delay_tm1(uint16 dly);
-void 	Hall_Int_Set(uint8 step);
-
-void 	Drag_Motor(void);
-void 	Commutation(void);
-void 	TM3_Dly_Set(uint16 dly);
-
-
-_bits status = {0,0,0,0,0,0,0,0};
+extern uint16 uiHallPeriod, uiHallCnt;
+extern uint8 ucCommStep , uiCommCycle ;;
 extern uint8 ucDragTmr;
 extern uint16 uiDragDly;
 extern uint8 ucCount1ms;
+extern uint16 uiDutyRamp;
+extern uint8 state_motor;
 
+_bits status = {0,0,0,0,0,0,0,0};
 uint16 duty_max = 800;  //period 800
 const uint8 cw_pattern[] = {1,3,2,6,4,5};
 const uint8 ccw_pattern[] = {1,5,4,6,2,3};	
-//const uint8 drag_time[]= {20,19, 17, 14, 11, 9};
 const uint16 drag_time[]= {20,20,19, 17, 14, 11, 9};
-//const uint16 drag_time[]= {25,25,22, 22, 19, 17, 14};
 
-
-
-
+static uint8 ucDragStep = 0;
+/*
 static uint8 hall_step = 0;
 static uint8 cnt_hall = 0;
-
 static uint16 period_hall = 0;
 static uint16 period_comm = 0;
-
 static uint16 cnt_comm = 0;
-static uint8 ucDragStep = 0;
 
 static uint16 uiHallTmr = 0;
-//static uint16 uiHallDlyTmr = 0;
-
-//static uint16 uiHallPeriod_Old = 0;
-
-//static uint16 uiHallDly = 0;
-
-
-extern uint16 uiDutyRamp;
-//static uint16 uiDutyRampTmr = 0;
-
-boolean bHallU_new = 0;
-boolean bHallU_old = 0;
-boolean bHallV_new = 0;
-boolean bHallV_old = 0;
-boolean bHallW_new = 0;
-boolean bHallW_old = 0;
-
-//static union __hall_type hall_bits;
-static boolean bHallU_zc = 0;
-/*
-boolean bHallU_zcr = 0;
-boolean bHallV_zcr = 0;
-boolean bHallW_zcr = 0;
-boolean bHallU_zcf = 0;
-boolean bHallV_zcf = 0;
-boolean bHallW_zcf = 0;
 */
 
-void Var_Init(void)
+void Init_Vars(void)
 {	
-	hall_step = 0;
-	cnt_hall = 0;
-	period_hall = 0;
-	period_comm = 0;
-	cnt_comm = 0;
-	state_motor = STOP;	
-//	bOCPFlag = 0;
-//	bStallFlag = 0;
+	ucCommStep = 0;
+	uiHallCnt = 0;
+	state_motor = DRAG;
+	ucCommStep = 0;	
+	uiCommCycle = 0;
+	ucDragStep = 0;
+	uiHallCnt = 0;
+	uiDutyRamp = 700;	
 }
 
 
@@ -116,40 +49,27 @@ void main()
 	GCC_NOP();
 	GCC_NOP();	
 	_emi = 0;
+	
 	// watch dog timer clock
 	_ws0 = 1;
 	_ws1 = 1;
 	_ws2 = 1;
 	
-	//Init_System();	
-	Var_Init();	
+	//Init_System();		
 	Init_IO();
 	Init_Comp();
-	//Init_CAPTM();
 	Init_ADC();	
 	Init_TM0();
 	Init_TM1();
 	Init_TM3();	
-	//Init_Motor_Ctrl();
-	
 	Init_Int();
-	_emi = 1;
-		
-	Init_PWM();
-	ucCommStep = 0;
-	uiHallCnt = 0;
+	Init_Vars();	
+	Init_PWM();		
+	PWM_SET(0, uiDutyRamp);
 	_pwmon = 1;	
 
-	state_motor = DRAG;
-	ucCommStep = 0;	
-	uiCommCycle = 0;
-	uiDutyRamp = 700;	
-	PWM_SET(0, uiDutyRamp);
-	ucDragStep = 0;
-	uiHallCnt = 0;
-	uiHallTmr = 0;
-	bHallU_zc = 0;	
 	Init_TimeBase();
+	_emi = 1;
 	while (1)
 	{
 	
@@ -299,49 +219,6 @@ void Init_ADC(void)
 	delay1(100);	
 }
 
-void ADC_Ch_Sel(uint8 ch)
-{
-	_acs3 = (ch >> 3) & 0x01;
-	_acs2 = (ch >> 2) & 0x01;
-	_acs1 = (ch >> 1) & 0x01;
-	_acs0 = ch & 0x01;	
-}
-
-void ADC_Trig(void)
-{
-	_adstr = 0;
-	_adstr = 1;
-	_adstr = 0;
-}
-
-/* set ADC auto scan channel */
-void ADC_AC_CH(uint8 order, uint8 ch) 
-{
-	uint8 temp ;
-
-	if (order == 0)
-	{
-		temp = _adisg1;	
-		_adisg1 = (temp & 0xF0)	| ch;
-	}
-	else if (order == 1)
-	{
-		temp = _adisg1;	
-		_adisg1 = (temp & 0x0F)	| (ch << 4);
-	}
-	else if (order == 2)
-	{
-		temp = _adisg2;	
-		_adisg2 = (temp & 0xF0)	| ch;
-	}
-	else if (order == 3)
-	{
-		temp = _adisg2;	
-		_adisg2 = (temp & 0x0F)	| (ch << 4);
-	}
-}
-
-
 
 void Init_CAPTM(void)
 {	
@@ -390,11 +267,6 @@ void Init_TM3(void)
 
 }
 
-void TM3_Dly_Set(uint16 dly)
-{
-	_ptm3al = dly & 0xFF;
-	_ptm3ah = (dly >> 8) & 0xFF;
-}
 
 void Init_Int(void)
 {
@@ -475,6 +347,16 @@ void Init_OCP(void)
 	_c0en = 1;
 
 }
+
+void Init_TimeBase(void) // 16MHz/16384 = 1.024ms
+{
+    _tbc = 0xc0;
+	CLRF_TMB;    
+    _tbe = 1;	
+    INTEN_TMB = 1;
+    WDT_RESET;
+}
+
 
 void Init_PWM(void)
 {
@@ -574,6 +456,12 @@ void Init_PWM(void)
 	
 }
 
+void TM3_Dly_Set(uint16 dly)
+{
+	_ptm3al = dly & 0xFF;
+	_ptm3ah = (dly >> 8) & 0xFF;
+}
+
 void PWM_Duty(uint16 duty)
 {
 	//duty = PWM_MAX -duty;
@@ -623,6 +511,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 			
 	_pwmsuf = 1;  // this bit must enable to update pwm duty	
 }
+
 //1:1.37us
 //10: 5.3us
 //100:45us
@@ -692,17 +581,6 @@ void delay_tm1(uint16 dly)
 }
 
 
-void Init_TimeBase(void) // 16MHz/16384 = 1.024ms
-{
-    _tbc = 0xc0;
-	CLRF_TMB;    
-    _tbe = 1;	
-    INTEN_TMB = 1;
-    WDT_RESET;
-}
-
-
-
 void Drag_Motor(void)
 {
 	//PWM_Duty(PWM_DRAG);	
@@ -716,101 +594,45 @@ void Drag_Motor(void)
 }
 
 
-// 20kHz, 50us
-void __attribute ((interrupt(0x0C))) ISR_PWM0_2(void) // 
+void ADC_Ch_Sel(uint8 ch)
 {
-//	uint16 time_delay;
-	
-	/*
-	bHallU_new = (_mcd & 0x02) == 0x02 ? 1: 0;
-	bHallV_new = (_mcd & 0x04) == 0x04 ? 1: 0;
-	bHallW_new = (_mcd & 0x01) == 0x01 ? 1: 0;	
-		
-	// fall edge detector , delayed some time after commutation
-	if ((uiCommTmr >= 5))// && (uiCommCycle > 0))
-	{
-		switch (ucCommStep)
-		{
-			case 0:
-				if ((bHallW_old == 0) && (bHallW_new == 1))
-					bHallW_zcr = 1;					
-				break;
-			case 1:
-				if ((bHallV_old == 1) && (bHallV_new == 0))
-					bHallV_zcf = 1;
-				break;
-			case 2:
-				if ((bHallU_old == 0) && (bHallU_new == 1))
-					bHallU_zcr = 1;
-				break;								
-			case 3:
-				if ((bHallW_old == 1) && (bHallW_new == 0))
-					bHallW_zcf = 1;
-				break;			
-			case 4:
-				if ((bHallV_old == 0) && (bHallV_new == 1))
-					bHallV_zcr = 1;
-				break;					
-			case 5:
-				if ((bHallU_old == 1) && (bHallU_new == 0))
-					bHallU_zcf = 1;
-				break;	
-			default:
-				break;			
-		}
-	}	
-	
-	if (hall_bits.byte != 0) // if zc, save current hall time to hall period
-	{
-		TO1 = 1;
-		uiHallPeriod = uiHallTmr;
-		uiHallTmr = 0;
-		bHallU_zc = 1;
-		hall_bits.byte = 0;		
-		if (uiHallCnt < 1000)
-			uiHallCnt++;		
-	
-				
-	}
-	
-	// save old comparator value
-	bHallU_old = bHallU_new;
-	bHallV_old = bHallV_new;
-	bHallW_old = bHallW_new;
-
-	if (uiHallTmr == (uiHallPeriod >> 1))			
-		TO1 = 0;
-						
-	if (uiCommTmr < 65534) //  reset at Commutation()
-		uiCommTmr++;	
-
-	if (ucDragTmr < 65534) //
-		ucDragTmr++;	
-			
-	if (uiHallTmr < 65534) // 1000ms
-		uiHallTmr++;		
-		
-	if (uiHallDlyTmr < 65534) // 
-		uiHallDlyTmr++;
-			
-	if (uiDutyRampTmr < 65534) // 500ms, reset at ZC
-		uiDutyRampTmr++;
-		
-
-
-	 
-	
-	// clear interrupt flags
-
-
-
-	if (ucDragTmr < 65534) //
-		ucDragTmr++;
-	*/
-	WDT_RESET;
-	_pwmpf = 0;
-	_pwmd0f = 0;
-	_pwmd1f = 0;
-	_pwmd2f = 0;
-	_int_pri3f = 0;		
+	_acs3 = (ch >> 3) & 0x01;
+	_acs2 = (ch >> 2) & 0x01;
+	_acs1 = (ch >> 1) & 0x01;
+	_acs0 = ch & 0x01;	
 }
+
+void ADC_Trig(void)
+{
+	_adstr = 0;
+	_adstr = 1;
+	_adstr = 0;
+}
+
+/* set ADC auto scan channel */
+void ADC_AC_CH(uint8 order, uint8 ch) 
+{
+	uint8 temp ;
+
+	if (order == 0)
+	{
+		temp = _adisg1;	
+		_adisg1 = (temp & 0xF0)	| ch;
+	}
+	else if (order == 1)
+	{
+		temp = _adisg1;	
+		_adisg1 = (temp & 0x0F)	| (ch << 4);
+	}
+	else if (order == 2)
+	{
+		temp = _adisg2;	
+		_adisg2 = (temp & 0xF0)	| ch;
+	}
+	else if (order == 3)
+	{
+		temp = _adisg2;	
+		_adisg2 = (temp & 0x0F)	| (ch << 4);
+	}
+}
+

@@ -15,12 +15,6 @@ uint16 uiDutyRamp = 0;
 
 extern _bits status;
 
-void 	Drag_Motor(void);
-void 	Commutation(void);
-void 	TM3_Dly_Set(uint16 dly);
-void 	delay_tm0(uint16 dly);
-void 	PWM_Duty(uint16 duty);
-
 void __attribute ((interrupt(0x28))) ISR_TM0(void) // For commutation period calculation, 16b
 {
 	_int_pri10f = 0;
@@ -206,4 +200,102 @@ void __attribute ((interrupt(0x08))) ISR_OCP(void)
 }
 
 
+// 20kHz, 50us
+void __attribute ((interrupt(0x0C))) ISR_PWM0_2(void) // 
+{
+//	uint16 time_delay;
+	
+	/*
+	bHallU_new = (_mcd & 0x02) == 0x02 ? 1: 0;
+	bHallV_new = (_mcd & 0x04) == 0x04 ? 1: 0;
+	bHallW_new = (_mcd & 0x01) == 0x01 ? 1: 0;	
+		
+	// fall edge detector , delayed some time after commutation
+	if ((uiCommTmr >= 5))// && (uiCommCycle > 0))
+	{
+		switch (ucCommStep)
+		{
+			case 0:
+				if ((bHallW_old == 0) && (bHallW_new == 1))
+					bHallW_zcr = 1;					
+				break;
+			case 1:
+				if ((bHallV_old == 1) && (bHallV_new == 0))
+					bHallV_zcf = 1;
+				break;
+			case 2:
+				if ((bHallU_old == 0) && (bHallU_new == 1))
+					bHallU_zcr = 1;
+				break;								
+			case 3:
+				if ((bHallW_old == 1) && (bHallW_new == 0))
+					bHallW_zcf = 1;
+				break;			
+			case 4:
+				if ((bHallV_old == 0) && (bHallV_new == 1))
+					bHallV_zcr = 1;
+				break;					
+			case 5:
+				if ((bHallU_old == 1) && (bHallU_new == 0))
+					bHallU_zcf = 1;
+				break;	
+			default:
+				break;			
+		}
+	}	
+	
+	if (hall_bits.byte != 0) // if zc, save current hall time to hall period
+	{
+		TO1 = 1;
+		uiHallPeriod = uiHallTmr;
+		uiHallTmr = 0;
+		bHallU_zc = 1;
+		hall_bits.byte = 0;		
+		if (uiHallCnt < 1000)
+			uiHallCnt++;		
+	
+				
+	}
+	
+	// save old comparator value
+	bHallU_old = bHallU_new;
+	bHallV_old = bHallV_new;
+	bHallW_old = bHallW_new;
+
+	if (uiHallTmr == (uiHallPeriod >> 1))			
+		TO1 = 0;
+						
+	if (uiCommTmr < 65534) //  reset at Commutation()
+		uiCommTmr++;	
+
+	if (ucDragTmr < 65534) //
+		ucDragTmr++;	
+			
+	if (uiHallTmr < 65534) // 1000ms
+		uiHallTmr++;		
+		
+	if (uiHallDlyTmr < 65534) // 
+		uiHallDlyTmr++;
+			
+	if (uiDutyRampTmr < 65534) // 500ms, reset at ZC
+		uiDutyRampTmr++;
+		
+
+
+	 
+	
+	// clear interrupt flags
+
+
+
+	if (ucDragTmr < 65534) //
+		ucDragTmr++;
+	*/
+	WDT_RESET;
+	_pwmpf = 0;
+	_pwmd0f = 0;
+	_pwmd1f = 0;
+	_pwmd2f = 0;
+	_int_pri3f = 0;		
+}
 

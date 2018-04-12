@@ -96,4 +96,36 @@ union __hall_type { // define union
 #define TB2 _pb2
 #define TB0 _pb0
 
+void 	Init_IO(void);
+void 	Init_System(void);
+void 	Init_PWM(void);
+void 	Init_Comp(void);
+void 	Init_CAPTM(void);
+void 	Init_TM0(void);
+void 	Init_TM1(void);
+void 	Init_TM3(void);
+void 	Init_Int(void);
+void 	Init_ADC(void);
+void 	Init_TimeBase(void);
+void 	Init_Vars(void);
+
+void 	delay_10u(uint16 x);
+void 	delay1(uint8 n);
+void 	delay_ms(uint16 x);
+void 	delay_tm0(uint16 dly);
+void 	delay_tm1(uint16 dly);
+
+void 	ADC_Ch_Sel(uint8 ch);
+void 	ADC_Trig(void);
+void 	ADC_AC_CH(uint8 order, uint8 ch);
+
+void 	PWM_Duty(uint16 duty);
+void 	PWM_SET(uint8 mode, uint16 duty);
+
+void 	TM3_Dly_Set(uint16 dly);
+
+void 	Hall_Int_Set(uint8 step);
+void 	Drag_Motor(void);
+void 	Commutation(void);
+
 #endif 
