@@ -11,3 +11,7 @@
 
 180412b
 -- 穝俱瞶礚ノ跑计のㄧ计
+
+180412d
+-- 糤 hardware mask modeのhall sensor delay匡兜
+-- 把计て PWMのhall noise filter
