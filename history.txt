@@ -15,3 +15,6 @@
 180412d
 -- 增加 hardware mask mode及hall sensor delay選項
 -- 參數化 PWM及hall noise filter
+
+180413
+-- add UART OK

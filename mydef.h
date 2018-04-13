@@ -1,9 +1,10 @@
+
+
 #ifndef _MYDEF_H_
 #define _MYDEF_H_
-
 #include "HT66FM5440.h"
-//#define MSKMS_HW
 
+//#define MSKMS_HW
 #define PWM_MAX 				800
 #define PWM_DRAG_START			500
 #define PWM_DRAG_END			800
@@ -11,7 +12,7 @@
 
 #define NUM_DRAG				0x16
 #define NUM_RAMP				0x16
-#define NUM_RUN					0x01
+#define NUM_RUN 				0x01
 
 typedef unsigned char boolean; /* Boolean value type. */
 typedef unsigned long int uint32; /* Unsigned 32 bit value */
@@ -21,25 +22,54 @@ typedef signed long int int32; /* Signed 32 bit value */
 typedef signed short int16; /* Signed 16 bit value */
 typedef signed char int8; /* Signed 8 bit value */
 
-typedef struct {
-	unsigned char	b0				: 1;
-	unsigned char	b1				: 1;
-	unsigned char	b2				: 1;
-	unsigned char	b3				: 1;
-	unsigned char	b4				: 1;
-	unsigned char	b5				: 1;
-	unsigned char	b6				: 1;
-	unsigned char	b7				: 1;
+typedef struct 
+{
+unsigned char	b0				: 1;
+unsigned char	b1				: 1;
+unsigned char	b2				: 1;
+unsigned char	b3				: 1;
+unsigned char	b4				: 1;
+unsigned char	b5				: 1;
+unsigned char	b6				: 1;
+unsigned char	b7				: 1;
 } _bits;
 
 
-union __hall_type { 								// define union
-	_bits			bits;							// using of structure
-	uint8			byte;
+typedef struct 
+{
+uint8				bit0			: 1;
+uint8				bit1			: 1;
+uint8				bit2			: 1;
+uint8				bit3			: 1;
+uint8				bit4			: 1;
+uint8				bit5			: 1;
+uint8				bit6			: 1;
+uint8				bit7			: 1;
+} Byte;
+
+
+typedef union 
+{
+struct 
+{
+uint16 			DL				: 8;
+uint16 			DH				: 8;
+} Byte;
+
+
+uint16 			Word;
+} WORD;
+
+
+union __hall_type
+{													// define union
+_bits			bits;								// using of structure
+uint8			byte;
 };
 
 
 #define bNmsFlag				status.b0
+#define bRxData					status.b1
 
 /*
 #define bHallU_zcr	hall_bits.bits.b0
@@ -50,9 +80,6 @@ union __hall_type { 								// define union
 #define bHallW_zcf	hall_bits.bits.b5
 #define bHallU_zc	hall_bits.bits.b6
 */
-// Watch dog timer reset
-#define WDT_RESET				asm("CLR	WDT")
-
 // ADC resolution
 #define ADC_10b 				1
 #define ADC_12b 				0
@@ -91,7 +118,7 @@ union __hall_type { 								// define union
 #define INTEN_HALL				_int_pri1e
 #define INTEN_TM3				_int_pri14e
 #define INTEN_PWM				_int_pri3e
-#define EMI_ON					_emi				= 1
+
 
 // interrupt flag clear
 #define CLRF_TMB				_int_pri15f = 0; _tbf = 0
@@ -119,6 +146,12 @@ union __hall_type { 								// define union
 #define TB2 					_pb2
 #define TB0 					_pb0
 
+#define DI()					(_emi=0)
+#define EI()					(_emi=1)
+#define FeedWatchDog()			asm("clr wdt")
+
+
+
 // Function declaration
 void Init_IO(void);
 void Init_System(void);
@@ -132,6 +165,8 @@ void Init_Int(void);
 void Init_ADC(void);
 void Init_TimeBase(void);
 void Init_Vars(void);
+void Init_UART(void);
+
 
 void delay_10u(uint16 x);
 void delay1(uint8 n);
@@ -153,4 +188,8 @@ void Hall_Int_Set(uint8 step);
 void Drag_Motor(void);
 void Commutation(void);
 
+boolean Uart_Tx(uint8 txdata);
+
+
 #endif
+
