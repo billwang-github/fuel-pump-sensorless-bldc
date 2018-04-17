@@ -21,91 +21,12 @@ uint16			uiDutyRamp = 0;
 
 uint8			ucRxData = 0;
 
-DEFINE_ISR(ISR_TM0, 0x28);
-ISR_TM0(void) // For commutation period calculation, 16b
-{
-	_int_pri10f 		= 0;
-	_tm0af				= 0;						// clear TM0 interrup flag	  
-	_pt0on				= 0;
-	FeedWatchDog();
-}
+uint8			Ad_Is, Ad_Vdc, Ad_Vsp;
 
-DEFINE_ISR(ISR_TM1, 0x2c);
-ISR_TM1(void) // For hall period calculation, 16b
-{
-	_int_pri11f 		= 0;
-	_tm1af				= 0;						// clear TM1 interrup flag	  
-	_pt1on				= 0;						// disable TM1 
-	FeedWatchDog();
-}
-
-DEFINE_ISR(ISR_TM3, 0x38);
-void ISR_TM3(void) // 10b
-{
-	_int_pri14f 		= 0;
-	_tm3af				= 0;
-	_pt3on				= 0;						// stop TM3
-
-	CLRF_TM3;										// clear TM3 interrup flag	  
-	CLRF_HALL;										// clear hall int flag
-
-	if ((uiCommCycle == 0) && (ucCommStep == 1))
-		INTEN_HALL = 0; // disable hall interrupt  
-	else 
-		INTEN_HALL = 1; // enable hall interrupt  
-
-	_integ0 			|= 0x40;					// CMP output  
-	FeedWatchDog();
-
-}
-
-
-// I2C, UART, LVD, Timebase
-DEFINE_ISR(ISR_Int15, 0x3c);
-void ISR_Int15(void)
-{
-	if (_tbf) // 16MHz/16384 = 1.024ms
-	{
-		if (state_motor == DRAG)
-		{
-			if (ucDragTmr++ >= uiDragDly)
-			{
-				Drag_Motor();
-			}
-		}
-
-		ucCount1ms++;
-
-		if (ucCount1ms >= 1)
-		{
-			ucCount1ms			= 0;
-			bNmsFlag			= 1;
-		}
-		_tbf				= 0;
-	}
-
-	if (_uartf)
-	{
-		if (_rxif)
-		{
-			_rxif				= 0;
-			ucRxData 			= _txr_rxr;
-			_uartf				= 0;
-			bRxData 			= 1;
-		}
-	}
-
-	_int_pri15f = 0 ;
-	//_iicf				= 0;
-	//_uartf				= 0;
-	//_lvf				= 0;
-	//_tbf				= 0;
-	FeedWatchDog();
-}
 
 
 DEFINE_ISR(ISR_HALL, 0x04);
-ISR_HALL(void)
+void ISR_HALL(void)
 {
 	uint8			ucHallTimeTempL, ucHallTimeTempH;
 
@@ -143,7 +64,7 @@ ISR_HALL(void)
 }
 
 DEFINE_ISR(ISR_OCP, 0x08);
-ISR_OCP(void)
+void ISR_OCP(void)
 {
 	_int_pri2f			= 0;
 	FeedWatchDog();
@@ -154,7 +75,7 @@ ISR_OCP(void)
 // 20kHz, 50us
 
 DEFINE_ISR(ISR_PWM0_2, 0x0C);
-ISR_PWM0_2(void) // 
+void ISR_PWM0_2(void) // 
 {
 	//	uint16 time_delay;
 
@@ -250,6 +171,120 @@ ISR_PWM0_2(void) //
 	_pwmd1f 			= 0;
 	_pwmd2f 			= 0;
 	_int_pri3f			= 0;
+}
+
+
+DEFINE_ISR(ISR_TM0, 0x28);
+void ISR_TM0(void) // For commutation period calculation, 16b
+{
+	_int_pri10f 		= 0;
+	_tm0af				= 0;						// clear TM0 interrup flag	  
+	_pt0on				= 0;
+	FeedWatchDog();
+}
+
+DEFINE_ISR(ISR_TM1, 0x2c);
+void ISR_TM1(void) // For hall period calculation, 16b
+{
+	_int_pri11f 		= 0;
+	_tm1af				= 0;						// clear TM1 interrup flag	  
+	_pt1on				= 0;						// disable TM1 
+	FeedWatchDog();
+}
+
+DEFINE_ISR(ISR_TM3, 0x38);
+void ISR_TM3(void) // 10b
+{
+	_int_pri14f 		= 0;
+	_tm3af				= 0;
+	_pt3on				= 0;						// stop TM3
+
+	CLRF_TM3;										// clear TM3 interrup flag	  
+	CLRF_HALL;										// clear hall int flag
+
+	if ((uiCommCycle == 0) && (ucCommStep == 1))
+		INTEN_HALL = 0; // disable hall interrupt  
+	else 
+		INTEN_HALL = 1; // enable hall interrupt  
+
+	_integ0 			|= 0x40;					// CMP output  
+	FeedWatchDog();
+
+}
+
+
+// I2C, UART, LVD, Timebase
+DEFINE_ISR(ISR_Int15, 0x3c);
+void ISR_Int15(void)
+{
+	if (_tbf) // 16MHz/16384 = 1.024ms
+	{
+		if (state_motor == DRAG)
+		{
+			if (ucDragTmr++ >= uiDragDly)
+			{
+				Drag_Motor();
+			}
+		}
+
+		ucCount1ms++;
+
+		if (ucCount1ms >= 1)
+		{
+			ucCount1ms			= 0;
+			bNmsFlag			= 1;
+		}
+		_tbf				= 0;
+	}
+
+	if (_uartf)
+	{
+		if (_rxif)
+		{
+			_rxif				= 0;
+			ucRxData 			= _txr_rxr;
+			_uartf				= 0;
+			bRxData 			= 1;
+		}
+	}
+
+	_int_pri15f = 0 ;
+	//_iicf				= 0;
+	//_uartf				= 0;
+	//_lvf				= 0;
+	//_tbf				= 0;
+	FeedWatchDog();
+}
+
+
+DEFINE_ISR(ISR_ADC, 0x20);
+void ISR_ADC(void)
+{
+	static boolean num;
+	Adc_Read_Auto();
+	/*
+	if ((uiCommCycle == 0) && (ucCommStep == 1))
+	{
+		if (Ad_Is < 70)
+		{	
+			if (uiDutyRamp < 500)
+				uiDutyRamp +=1;
+		}
+		else
+		{
+			if (uiDutyRamp > 100)
+				uiDutyRamp -=1;	
+		}
+		PWM_Duty(uiDutyRamp);
+	}
+	*/
+	Uart_Tx(Ad_Is);	
+	_iseocb = 0;
+	_eocb	= 0;		
+	_isaeocf = 0;
+	_aeocf = 0;
+	_int_pri7f = 0;
+	FeedWatchDog();
 }
 
 

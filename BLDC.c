@@ -14,6 +14,7 @@ extern uint16	uiDutyRamp;
 extern uint8	state_motor;
 extern _bits	status;
 extern uint8	ucRxData;
+extern uint8	Ad_Is, Ad_Vdc, Ad_Vsp;
 
 uint16			duty_max = 800; //period 800
 uint8			i;
@@ -61,25 +62,16 @@ void main()
 
 	//Init_System();		
 	Init_IO();
-
-	Init_Comp();
-	//Init_ADC();	
+	Init_Comp();	
 	Init_TM0();
 	Init_TM1();
 	Init_TM3();
 	Init_Int();
 	Init_Vars();
 	Init_UART();
-
-	/*
-	_ahlhe				= 0;
-	_ishe				= 0;
-	_isps				= 0;
-	_capche 			= 0;
-	_capohe 			= 0;
-	_pswps				= 0;
-	_ahlps				= 0;
-	*/
+	Init_OCP(ILIM_DAC);	
+	OCP_DIS;
+	Init_ADC(ADC_10b);		
 	Init_PWM();
 	PWM_SET(0, uiDutyRamp);
 	PWM_ON;
@@ -291,6 +283,168 @@ void Init_System(void)
 
 }
 
+void Init_IO(void)
+{
+	/* set PC as output */
+	_pc 				= 0x00;
+	_pcc				= 0x00;
+	_pc1				= 1;
+	_pc3				= 1;
+	_pc5				= 1;
+
+#ifdef MSKMS_HW
+
+	// PC as Gate output
+	_pc0s1				= 1;
+	_pc0s0				= 0;
+	_pc1s1				= 1;
+	_pc1s0				= 0;
+	_pc2s1				= 1;
+	_pc2s0				= 0;
+	_pc3s1				= 1;
+	_pc3s0				= 0;
+	_pc4s1				= 1;
+	_pc4s0				= 0;
+	_pc5s1				= 1;
+	_pc5s0				= 0;
+
+#else
+
+	_pcps0				= 0x00;
+	_pcps1				= 0x00;
+#endif
+
+	// set pb0,pb1,pb2 as hall output
+	_pb 				= 0x00;
+	_pbc0				= 0;
+	_pbc1				= 0;
+	_pbc2				= 0;
+	_pbc6				= 1;						//RX
+	_pbc7				= 0;						//TX
+	_pb0s1				= 0;						//HAO
+	_pb0s0				= 1;
+	_pb1s1				= 0;						//HBO
+	_pb1s0				= 1;
+	_pb2s1				= 0;						//HCO
+	_pb2s0				= 1;
+	_pb7s1				= 0;						//TX
+	_pb7s0				= 1;
+	_pb6s1				= 0;						//RX
+	_pb6s0				= 1;
+
+	// set pb0, pb1,pb2 as debug output
+	//_pb = 0;
+	//_pbc = 0;
+
+	/* set OCDS port as output */
+	_pac0				= 0;
+	_pac2				= 0;
+	_pa 				= 0x00;
+
+	// PA1(AP) as ADC for current sense
+	_pa1s1				= 0;
+	_pa1s0				= 1;
+
+	// PA6(AN7) as ADC for voltage sense
+	_pa6s1				= 1;
+	_pa6s0				= 0;
+
+	// PA7(AN6) for test
+	_pa7s1				= 0;
+	_pa7s0				= 1;
+
+	// PA3,PA4,PA5 as comparator input
+	_pa3s1				= 0;						// C1P
+	_pa3s0				= 1;
+	_pa4s1				= 1;						// C2P
+	_pa4s0				= 0;
+	_pa5s1				= 1;						// C3p
+	_pa5s0				= 0;
+
+	// PB3 as CPN, C1N, C2N and C3N will be shorted
+	_pbc3				= 0;
+	_pb3s1				= 1;
+	_pb3s0				= 0;
+
+	// PD2, PD3 as test output
+	_pd 				= 0;
+	_pdc2				= 0;
+	_pdc3				= 0;
+
+}
+
+
+void Init_Int(void)
+{
+	// enable hall sensor interrupt
+	_halaf				= 0;
+	_halbf				= 0;
+	_halcf				= 0;
+	_halae				= 1;
+	_halbe				= 1;
+	_halce				= 1;
+	INTEN_HALL			= 0;
+
+	// enable CMP0
+	_int_pri2f			= 0;
+	_int_pri2e			= 1;
+	
+	// ADC
+	_aeocf = 0;
+	_aeoce = 0;
+	_isaeocf = 0;
+	_isaeoce = 1;
+	_int_pri8f = 0;
+	_int_pri8e = 1;
+
+	// TM0
+	_tm0af				= 0;
+	_tm0ae				= 1;
+	_int_pri10f 		= 0;
+	_int_pri10e 		= 1;
+
+	// TM1
+	_tm1af				= 0;
+	_tm1ae				= 1;
+	_int_pri11f 		= 0;
+	_int_pri11e 		= 1;
+
+	// TM3
+	_tm3af				= 0;
+	_tm3ae				= 1;
+	_int_pri14f 		= 0;
+	_int_pri14e 		= 1;
+
+
+	// Time Base
+	_tbf				= 0;
+	_tbe				= 1;
+	_int_pri15f 		= 0;
+	INTEN_TMB			= 1;
+
+	// PWM
+	_pwmpf				= 0;
+	_pwmd0f 			= 0;
+	_pwmd1f 			= 0;
+	_pwmd2f 			= 0;
+	_int_pri3f			= 0;
+
+	_pwmpe				= 1;
+	_pwmd0e 			= 0;
+	_pwmd1e 			= 0;
+	_pwmd2e 			= 0;
+	INTEN_PWM			= 1;
+
+	// UART
+	_uartf 				= 0;				
+	_int_pri15f			= 0;
+
+	_uarte				= 1;	
+	_int_pri15e			= 1;
+	
+	DI();
+}
+
 
 void Init_PWM(void)
 {
@@ -410,14 +564,25 @@ void Init_PWM(void)
 	// MPTC1
 	_pswd				= 0;						//software protection
 	_pswe				= 0;
-	_ishe				= 1;
+	_pswps				= 0;
+	
+	_ahlhe				= 0;
+	_ahlps				= 0;	
+	_ishe				= 0;
 	_isps				= 0;
+	
+	_capche				= 0;
+	_capcps				= 1;
+	_capohe				= 0;
+	_capops				= 1;
+	
 	_ocpse				= 1;
-	;
 
 	// MPTC2
 	_isps				= 1;
-
+	
+	// OCPS
+	_ocps = 0;
 	// I/O Init
 	//	
 	PWM_SET(0, 200);
@@ -439,193 +604,121 @@ void Init_Vars(void)
 }
 
 
-void Init_IO(void)
+void Init_OCP(uint8 idata) // idata = i * R * 1020 
 {
-	/* set PC as output */
-	_pc 				= 0x00;
-	_pcc				= 0x00;
-	_pc1				= 1;
-	_pc3				= 1;
-	_pc5				= 1;
-
-#ifdef MSKMS_HW
-
-	// PC as Gate output
-	_pc0s1				= 1;
-	_pc0s0				= 0;
-	_pc1s1				= 1;
-	_pc1s0				= 0;
-	_pc2s1				= 1;
-	_pc2s0				= 0;
-	_pc3s1				= 1;
-	_pc3s0				= 0;
-	_pc4s1				= 1;
-	_pc4s0				= 0;
-	_pc5s1				= 1;
-	_pc5s0				= 0;
-
-#else
-
-	_pcps0				= 0x00;
-	_pcps1				= 0x00;
-#endif
-
-	// set pb0,pb1,pb2 as hall output
-	_pb 				= 0x00;
-	_pbc0				= 0;
-	_pbc1				= 0;
-	_pbc2				= 0;
-	_pbc6				= 1;						//RX
-	_pbc7				= 0;						//TX
-	_pb0s1				= 0;						//HAO
-	_pb0s0				= 1;
-	_pb1s1				= 0;						//HBO
-	_pb1s0				= 1;
-	_pb2s1				= 0;						//HCO
-	_pb2s0				= 1;
-	_pb7s1				= 0;						//TX
-	_pb7s0				= 1;
-	_pb6s1				= 0;						//RX
-	_pb6s0				= 1;
-
-	// set pb0, pb1,pb2 as debug output
-	//_pb = 0;
-	//_pbc = 0;
-
-	/* set OCDS port as output */
-	_pac0				= 0;
-	_pac2				= 0;
-	_pa 				= 0x00;
-
-	// PA1(AP) as ADC for current sense
-	_pa1s1				= 0;
-	_pa1s0				= 1;
-
-	// PA6(AN7) as ADC for voltage sense
-	_pa6s1				= 1;
-	_pa6s0				= 0;
-
-	// PA7(AN6) for test
-	_pa7s1				= 0;
-	_pa7s0				= 1;
-
-	// PA3,PA4,PA5 as comparator input
-	_pa3s1				= 0;						// C1P
-	_pa3s0				= 1;
-	_pa4s1				= 1;						// C2P
-	_pa4s0				= 0;
-	_pa5s1				= 1;						// C3p
-	_pa5s0				= 0;
-
-	// PB3 as CPN, C1N, C2N and C3N will be shorted
-	_pbc3				= 0;
-	_pb3s1				= 1;
-	_pb3s0				= 0;
-
-	// PD2, PD3 as test output
-	_pd 				= 0;
-	_pdc2				= 0;
-	_pdc3				= 0;
-
-}
-
-
-void Init_Int(void)
-{
-	// enable hall sensor interrupt
-	_halaf				= 0;
-	_halbf				= 0;
-	_halcf				= 0;
-	_halae				= 1;
-	_halbe				= 1;
-	_halce				= 1;
-	INTEN_HALL			= 0;
-
-	// enable CMP0
-	_int_pri2f			= 0;
-	_int_pri2e			= 1;
-
-	// TM0
-	_tm0af				= 0;
-	_tm0ae				= 1;
-	_int_pri10f 		= 0;
-	_int_pri10e 		= 1;
-
-	// TM1
-	_tm1af				= 0;
-	_tm1ae				= 1;
-	_int_pri11f 		= 0;
-	_int_pri11e 		= 1;
-
-	// TM3
-	_tm3af				= 0;
-	_tm3ae				= 1;
-	_int_pri14f 		= 0;
-	_int_pri14e 		= 1;
-
-
-	// Time Base
-	_tbf				= 0;
-	_tbe				= 1;
-	_int_pri15f 		= 0;
-	INTEN_TMB			= 1;
-
-	// PWM
-	_pwmpf				= 0;
-	_pwmd0f 			= 0;
-	_pwmd1f 			= 0;
-	_pwmd2f 			= 0;
-	_int_pri3f			= 0;
-
-	_pwmpe				= 0;
-	_pwmd0e 			= 0;
-	_pwmd1e 			= 0;
-	_pwmd2e 			= 0;
-	INTEN_PWM			= 0;
-
-	// UART
-	_uartf 				= 0;				
-	_int_pri15f			= 0;
-
-	_uarte				= 1;	
-	_int_pri15e			= 1;
+	_opoms				= 0x43; 					// rising edge trigger, AV=20
+	_opcm				= idata;					
 	
-	DI();
+	//OPA0CAL
+	_a0rs = 1;
+	_a0ofm	= 0;
+	
+	//CMPC	
+	_c0hyen 			= 1;
+	_c0en 				= 1;
+			
+	//interrupt
+	_int_pri2f = 0;
+	_int_pri2e = 1;
 }
 
-
-
-void Init_ADC(void)
+void Init_ADC(uint8 res)
 {
-	/* ADCR0	*/
-	_adrfs				= 0;						// High Byte=D[9:2]; Low Byte=D[1:0]
-	ADC_Ch_Sel(AN6);
+	// ==	ADCR0	==
+	_adrfs				= 0;						//12-bit data format (ADCRL_SEL=0):
+													//0: High Byte=D[11:4]; Low Byte=D[3:0]
+													//1: High Byte=D[11:8]; Low Byte=D[7:0]
+													//10-bit data format (ADCRL_SEL=1):
+													//0: High Byte=D[9:2]; Low Byte=D[1:0]
+													//1: High Byte=D[9:8]; Low Byte=D[7:0]
+	_adoff 				= 1; 						// ADC on
+	Adc_ch_sel0(ADC_VDC);
 
 	/* ADCR1	*/
-	_adck2				= 1;						// fsys/16 = 1MHz
-	_adck1				= 0;
+	_dlstr = 1;										// auto scan 
+	_pwis	= 0;	// period auto scan	
+	_adchve =	1;									//00: Low boundary value < Converted data < High boundary value
+	_adclve	=	0;									//01: Converted data <= Low boundary value
+													//10: Converted data >= High boundary value
+													//11: Converted data <= Low boundary value or Converted data >= High boundary value
+	_adck2				= 0;						// fsys/4 = 4MHz, 250ns
+	_adck1				= 1;
 	_adck0				= 0;
 
 	//ADRC2
-	_adcrl_sel			= ADC_10b;					// 10 bit
+	_adcrl_sel			= res;					// resolution
 	_adch_sel1			= 1;						// 3 channel to scan
 	_adch_sel0			= 0;
 
-	// ADISG1, auto scan channel 1,0 
-	// ADISG2, auto scan channel 3,2
-	ADC_AC_CH(0, OPA0);
-	ADC_AC_CH(1, AN7);
-	ADC_AC_CH(2, AN6);
 
-	// ADDL, delay time
+	Adc_ch_sel1(0, ADC_IS);
+	Adc_ch_sel1(1, ADC_VDC);
+	Adc_ch_sel1(2, ADC_VSP);
+
+	// ADDL, delay time, dt=1us/16
+	_addl = 160;
 	// ADBYPS
 	_ugb_on 			= 1;						// buffer on
 
 	//
-	_adstr				= 1;
-	_dlstr				= 1;
 	_adoff				= 0;						// adc on
-	delay1(100);
+	_isaeocf = 0;
+	_isaeoce = 1;
+}
+
+
+// for ADSTR triggered A/D conversion
+void Adc_ch_sel0(uint8 ch)
+{
+	_acs3				= (ch >> 3) & 0x01;
+	_acs2				= (ch >> 2) & 0x01;
+	_acs1				= (ch >> 1) & 0x01;
+	_acs0				= ch & 0x01;
+}
+
+/* set ADC auto scan channel */
+// ADISG1, auto scan channel 1,0 
+// ADISG2, auto scan channel 3,2
+void Adc_ch_sel1(uint8 order, uint8 ch)
+{
+	uint8			temp;
+
+	if (order == 0)
+	{
+		temp				= _adisg1;
+		_adisg1 			= (temp & 0xF0) | ch;
+	}
+	else if (order == 1)
+	{
+		temp				= _adisg1;
+		_adisg1 			= (temp & 0x0F) | (ch << 4);
+	}
+	else if (order == 2)
+	{
+		temp				= _adisg2;
+		_adisg2 			= (temp & 0xF0) | ch;
+	}
+	else if (order == 3)
+	{
+		temp				= _adisg2;
+		_adisg2 			= (temp & 0x0F) | (ch << 4);
+	}
+}
+
+
+void ADC_Trig(void)
+{
+	_adstr				= 0;
+	_adstr				= 1;
+	_adstr				= 0;
+}
+
+void Adc_Read_Auto()
+{
+	Ad_Is = _isrh0;
+	Ad_Vdc = _isrh1;
+	Ad_Vsp = _isrh2;
+	_iseocb = 0;	
 }
 
 
@@ -700,19 +793,6 @@ void Init_Comp(void)
 	_c2en				= 1;
 	_c1en				= 1;
 	_c0en				= 0;
-}
-
-
-void Init_OCP(void)
-{
-	_opoms				= 0x43; 					// rising edge trigger, AV=20
-	_a0rs				= 1;						// offset cal on
-	_a0ofm				= 1;
-	_opcm				= 103;						// 2V, 2.5A
-
-	_c0hyen 			= 1;
-	_c0en				= 1;
-
 }
 
 
@@ -874,62 +954,20 @@ void delay_tm1(uint16 dly)
 	}
 }
 
-
-void ADC_Ch_Sel(uint8 ch)
-{
-	_acs3				= (ch >> 3) & 0x01;
-	_acs2				= (ch >> 2) & 0x01;
-	_acs1				= (ch >> 1) & 0x01;
-	_acs0				= ch & 0x01;
-}
-
-
-void ADC_Trig(void)
-{
-	_adstr				= 0;
-	_adstr				= 1;
-	_adstr				= 0;
-}
-
-
-/* set ADC auto scan channel */
-void ADC_AC_CH(uint8 order, uint8 ch)
-{
-	uint8			temp;
-
-	if (order == 0)
-	{
-		temp				= _adisg1;
-		_adisg1 			= (temp & 0xF0) | ch;
-	}
-	else if (order == 1)
-	{
-		temp				= _adisg1;
-		_adisg1 			= (temp & 0x0F) | (ch << 4);
-	}
-	else if (order == 2)
-	{
-		temp				= _adisg2;
-		_adisg2 			= (temp & 0xF0) | ch;
-	}
-	else if (order == 3)
-	{
-		temp				= _adisg2;
-		_adisg2 			= (temp & 0x0F) | (ch << 4);
-	}
-}
-
 void Init_UART(void)
 {
 	//baud rate	BRG(calculated)	BRG 	actural	baud rate	error(%)
 	//==================================================================
 	//9600		103.1666667 	103 	9615.384615 		0.16025641
-	//14400		68.44444444 	68	1	4492.75362 		0.644122383
+	//14400		68.44444444 	68		1	4492.75362 		0.644122383
 	//19200		51.08333333 	51		19230.76923 		0.16025641
 	//38400		25.04166667 	25		38461.53846 		0.16025641
 	//57600		16.36111111 	16		58823.52941 		2.124183007
 	//76800		12.02083333 	12		76923.07692 		0.16025641
 	//115200	7.680555556 	8		111111.1111 		-3.549382716
+	//128000	6.8125			7		125000				-2.34375
+	//256000	2.90625			3		250000				-2.34375
+
 
 	_uarten = 1;	// enable uart pins	
 	_adden = 0;		// address detect disabled
@@ -944,11 +982,12 @@ void Init_UART(void)
 	_txbrk = 0; 	// no break
 
 	_brgh = 1;		// high speed
-	_brg = 25;		// 38400
+	_brg = 1;		// 256000
 	
 	_txen = 1;
 	_rxen = 1;	
 }
+
 
 boolean Uart_Tx(uint8 txdata)
 {
@@ -968,5 +1007,3 @@ boolean Uart_Tx(uint8 txdata)
 	_txr_rxr			= txdata;
 	return 0;
 }
-
-

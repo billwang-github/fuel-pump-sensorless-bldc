@@ -18,3 +18,7 @@
 
 180413
 -- add UART OK
+
+180417b
+-- add ADC, OCP
+-- initial current ramp up not successful

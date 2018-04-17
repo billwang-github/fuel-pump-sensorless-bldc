@@ -6,12 +6,17 @@
 
 //#define MSKMS_HW
 #define PWM_MAX 				800
-#define PWM_DRAG_START			500
+#define PWM_DRAG_START			400
 #define PWM_DRAG_END			800
 #define PWM_INC 				5
 
+#define VCC						4.66
+#define RSEN					40  // mOhm
+#define ILIMIT					3 // A
+#define ILIM_DAC				ILIMIT * 44// (uint8)((ILIMIT * RSEN * 20 * 255) / 4650) 
+
 #define NUM_DRAG				0x16
-#define NUM_RAMP				0x16
+#define NUM_RAMP				0x14
 #define NUM_RUN 				0x01
 
 typedef unsigned char boolean; /* Boolean value type. */
@@ -94,10 +99,9 @@ uint8			byte;
 #define OPA0					6
 #define AN6 					7
 #define AN7 					8
-#define ADC_ILIMIT				0
-#define ADC_IS					3
-#define ADC_VSP 				6
-#define ADC_VDC 				7
+#define ADC_IS					OPA0
+#define ADC_VSP 				AN6
+#define ADC_VDC 				AN7
 
 // motor status
 #define STOP					0
@@ -137,6 +141,8 @@ uint8			byte;
 
 #define PWM_ON					_pwmon				= 1
 
+#define OCP_EN					_ishe = 1
+#define OCP_DIS					_ishe = 0
 
 // Test pin 
 #define TO0 					_pd2
@@ -162,10 +168,11 @@ void Init_TM0(void);
 void Init_TM1(void);
 void Init_TM3(void);
 void Init_Int(void);
-void Init_ADC(void);
+void Init_ADC(uint8 res);
 void Init_TimeBase(void);
 void Init_Vars(void);
 void Init_UART(void);
+void Init_OCP(uint8 idata);
 
 
 void delay_10u(uint16 x);
@@ -174,9 +181,10 @@ void delay_ms(uint16 x);
 void delay_tm0(uint16 dly);
 void delay_tm1(uint16 dly);
 
-void ADC_Ch_Sel(uint8 ch);
+void Adc_ch_sel0(uint8 ch);
+void Adc_ch_sel1(uint8 order, uint8 ch);
+void Adc_Read_Auto();
 void ADC_Trig(void);
-void ADC_AC_CH(uint8 order, uint8 ch);
 
 void PWM_Duty(uint16 duty);
 void PWM_SET(uint8 mode, uint16 duty);
