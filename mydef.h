@@ -6,17 +6,17 @@
 
 //#define MSKMS_HW
 #define PWM_MAX 				800
-#define PWM_DRAG_START			400
-#define PWM_DRAG_END			800
-#define PWM_INC 				5
+#define PWM_DRAG_START			200
+#define PWM_DRAG_END			PWM_MAX
+#define PWM_INC 				2
 
 #define VCC						4.66
 #define RSEN					40  // mOhm
-#define ILIMIT					3 // A
+#define ILIMIT					2 // A
 #define ILIM_DAC				ILIMIT * 44// (uint8)((ILIMIT * RSEN * 20 * 255) / 4650) 
 
-#define NUM_DRAG				0x16
-#define NUM_RAMP				0x14
+#define NUM_DRAG				0x10
+#define NUM_RAMP				0x10
 #define NUM_RUN 				0x01
 
 typedef unsigned char boolean; /* Boolean value type. */

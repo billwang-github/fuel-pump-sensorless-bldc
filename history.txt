@@ -22,3 +22,14 @@
 180417b
 -- add ADC, OCP
 -- initial current ramp up not successful
+
+180417c
+-- current ramp successful
+-- PCB add filter 1.5nF
+-- High voltage start up duty must smaller than low voltage
+-- when OCP, gate dont close, why??
+
+180418a
+-- 5V~ 12V startup OK
+-- add commutation delay dynamatic change smoothly
+-- at high speed, commutation must small enough

@@ -16,7 +16,7 @@ extern _bits	status;
 extern uint8	ucRxData;
 extern uint8	Ad_Is, Ad_Vdc, Ad_Vsp;
 
-uint16			duty_max = 800; //period 800
+uint16			duty_max = PWM_MAX; //period 800
 uint8			i;
 
 const uint8 	cw_pattern[] =
@@ -66,16 +66,17 @@ void main()
 	Init_TM0();
 	Init_TM1();
 	Init_TM3();
-	Init_Int();
+
 	Init_Vars();
 	Init_UART();
 	Init_OCP(ILIM_DAC);	
-	OCP_DIS;
+	OCP_EN;
 	Init_ADC(ADC_10b);		
 	Init_PWM();
 	PWM_SET(0, uiDutyRamp);
 	PWM_ON;
 	Init_TimeBase();
+	Init_Int();
 	EI();
 
 	while (1)
@@ -113,32 +114,32 @@ void Drag_Motor(void)
 
 void Commutation(void)
 {
+	
+	uint16 dly_comm , dly_comm_final;
 	TO0 				= ~TO0;
 	INTEN_HALL			= 0;
-	ucDragTmr			= 0;
+	ucDragTmr			= 0;	
 
+
+	dly_comm_final = (uiHallPeriod >> 1);
+	if (dly_comm_final > 35)
+		dly_comm_final -= 25;
+	if (state_motor >= RUN)
+	{				
+		if (dly_comm > dly_comm_final)
+			dly_comm--;
+		else
+			dly_comm++;
+		//dly_comm = 10;
+		TO1 = 1;
+	}
+	else
+		dly_comm = 10;
+	
 #ifdef MSKMS_HW
-
-	if (state_motor >= RUN)
-	{
-		TM0_Dly_Set((uiHallPeriod >> 1) - 15);
-	}
-	else 
-	{
-		TM0_Dly_Set(100);
-	}
-
-#else
-
-	if (state_motor >= RUN)
-	{
-		delay_tm0((uiHallPeriod >> 1) - 15);
-	}
-	else 
-	{
-		delay_tm0(100);
-	}
-
+	TM0_Dly_Set(dly_comm);
+#else	
+	delay_tm0(dly_comm);
 #endif
 
 #ifdef MSKMS_HW
@@ -232,12 +233,12 @@ void Commutation(void)
 
 		if (uiCommCycle < 250)
 			uiCommCycle++;
-
+			
 		if (state_motor == RAMP)
 		{
 			//if (uiCommCycle > 20)
 			{
-				TO1 				= ~TO1;
+				//TO1 				= ~TO1;
 				uiDutyRamp			+= PWM_INC;
 
 				if (uiDutyRamp >= PWM_DRAG_END)
@@ -252,9 +253,11 @@ void Commutation(void)
 		}
 		else if (state_motor == RUN)
 		{
-			//_hchk_num = 0x01;
-		}
+			
+		}			
 	}
+
+
 
 	FeedWatchDog();
 }
@@ -838,7 +841,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms1 			= 0;
 		_prdrh				= 0x03; 				// 20kHz, 800	
 		_prdrl				= 0x20;
-		duty_max			= 800;
+		duty_max			= PWM_MAX;
 	}
 	else if (mode == 1)
 	{
@@ -846,7 +849,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms0 			= 0;
 		_prdrh				= 0x01; 				// 20kHz, 400	
 		_prdrl				= 0x90;
-		duty_max			= 400;
+		duty_max			= PWM_MAX >> 1;
 	}
 	else 
 	{
@@ -854,7 +857,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms0 			= 1;
 		_prdrh				= 0x01; 				// 20kHz, 400	
 		_prdrl				= 0x90;
-		duty_max			= 400;
+		duty_max			= PWM_MAX >> 1;
 	}
 
 	if (mode < 2)
