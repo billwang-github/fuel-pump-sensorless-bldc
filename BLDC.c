@@ -15,8 +15,10 @@ extern uint8	state_motor;
 extern _bits	status;
 extern uint8	ucRxData;
 extern uint8	Ad_Is, Ad_Vdc, Ad_Vsp;
+extern uint16			uiDutyFinal  ; //period 800
+extern boolean cc_start;
 
-uint16			duty_max = PWM_MAX; //period 800
+uint16 dly_comm , dly_comm_final;
 uint8			i;
 
 const uint8 	cw_pattern[] =
@@ -83,14 +85,14 @@ void main()
 	{	
 		if (bNmsFlag)
 		{
-			bNmsFlag			= 0;
-			
+			bNmsFlag			= 0;			
+			/*
 			if (bRxData)
 			{
 				Uart_Tx(ucRxData);
 				Uart_Tx(' ');
 				bRxData = 0;
-			}
+			}*/
 		}		
 		FeedWatchDog();
 	}
@@ -114,27 +116,25 @@ void Drag_Motor(void)
 
 void Commutation(void)
 {
-	
-	uint16 dly_comm , dly_comm_final;
+		 
 	TO0 				= ~TO0;
 	INTEN_HALL			= 0;
 	ucDragTmr			= 0;	
 
-
-	dly_comm_final = (uiHallPeriod >> 1);
-	if (dly_comm_final > 35)
-		dly_comm_final -= 25;
+	
 	if (state_motor >= RUN)
-	{				
+	{	/*	
+		dly_comm_final = (uiHallPeriod >> 1);
+		if (dly_comm_final > 30)
+			dly_comm_final -= 20;				
 		if (dly_comm > dly_comm_final)
 			dly_comm--;
-		else
-			dly_comm++;
-		//dly_comm = 10;
-		TO1 = 1;
+		else if (dly_comm < dly_comm_final)
+			dly_comm++;	*/
+		dly_comm = 30;
 	}
 	else
-		dly_comm = 10;
+		dly_comm = 5;
 	
 #ifdef MSKMS_HW
 	TM0_Dly_Set(dly_comm);
@@ -228,36 +228,12 @@ void Commutation(void)
 #endif
 
 	if (ucCommStep++ >= 5)
-	{
-		ucCommStep			= 0;
-
+	{		
+		ucCommStep			= 0;				
 		if (uiCommCycle < 250)
-			uiCommCycle++;
-			
-		if (state_motor == RAMP)
-		{
-			//if (uiCommCycle > 20)
-			{
-				//TO1 				= ~TO1;
-				uiDutyRamp			+= PWM_INC;
-
-				if (uiDutyRamp >= PWM_DRAG_END)
-				{
-					state_motor 		= RUN;
-					_hchk_num			= NUM_RUN;
-					uiDutyRamp			= PWM_DRAG_END;
-				}
-
-				PWM_Duty(uiDutyRamp);
-			}
-		}
-		else if (state_motor == RUN)
-		{
-			
-		}			
+			uiCommCycle++;	
+		Duty_Rampup();			
 	}
-
-
 
 	FeedWatchDog();
 }
@@ -571,7 +547,7 @@ void Init_PWM(void)
 	
 	_ahlhe				= 0;
 	_ahlps				= 0;	
-	_ishe				= 0;
+	_ishe				= 1;
 	_isps				= 0;
 	
 	_capche				= 0;
@@ -594,17 +570,6 @@ void Init_PWM(void)
 }
 
 
-void Init_Vars(void)
-{
-	ucCommStep			= 0;
-	uiHallCnt			= 0;
-	state_motor 		= DRAG;
-	ucCommStep			= 0;
-	uiCommCycle 		= 0;
-	ucDragStep			= 0;
-	uiHallCnt			= 0;
-	uiDutyRamp			= PWM_DRAG_START;
-}
 
 
 void Init_OCP(uint8 idata) // idata = i * R * 1020 
@@ -659,7 +624,7 @@ void Init_ADC(uint8 res)
 	Adc_ch_sel1(2, ADC_VSP);
 
 	// ADDL, delay time, dt=1us/16
-	_addl = 160;
+	_addl = 48;
 	// ADBYPS
 	_ugb_on 			= 1;						// buffer on
 
@@ -841,7 +806,6 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms1 			= 0;
 		_prdrh				= 0x03; 				// 20kHz, 800	
 		_prdrl				= 0x20;
-		duty_max			= PWM_MAX;
 	}
 	else if (mode == 1)
 	{
@@ -849,7 +813,6 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms0 			= 0;
 		_prdrh				= 0x01; 				// 20kHz, 400	
 		_prdrl				= 0x90;
-		duty_max			= PWM_MAX >> 1;
 	}
 	else 
 	{
@@ -857,7 +820,6 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms0 			= 1;
 		_prdrh				= 0x01; 				// 20kHz, 400	
 		_prdrl				= 0x90;
-		duty_max			= PWM_MAX >> 1;
 	}
 
 	if (mode < 2)
@@ -867,7 +829,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 	}
 	else 
 	{
-		duty				= duty_max - duty;
+		duty				= PWM_MAX - duty;
 		_dutr0h 			= (uint8) (duty >> 8);
 		_dutr0l 			= (uint8) (duty & 0xFF);
 	}
@@ -1009,4 +971,64 @@ boolean Uart_Tx(uint8 txdata)
 
 	_txr_rxr			= txdata;
 	return 0;
+}
+
+
+void Duty_Rampup(void)
+{
+	if ((state_motor >= RAMP) )//&& (uiCommCycle >=3))
+	{
+		TO1 				= ~TO1;
+		//if (uiCommCycle > 20)
+		//if (Ad_Is <= ILIM_CC_RAMP)
+		{
+
+			if (uiDutyRamp < uiDutyFinal) 
+			{
+				uiDutyRamp			+= PWM_INC;
+				if (uiDutyRamp >= uiDutyFinal)
+					uiDutyRamp = uiDutyFinal;
+				PWM_Duty(uiDutyRamp);
+			}
+			else if (uiDutyRamp > uiDutyFinal)
+			{			
+				uiDutyRamp			-= PWM_INC;
+				if (uiDutyRamp <= PWM_DRAG_START)
+					uiDutyRamp = PWM_DRAG_START;
+				PWM_Duty(uiDutyRamp);					
+			}			
+		}
+		/*else
+		{	
+					
+			uiDutyRamp			-= PWM_INC;
+			if (uiDutyRamp <= PWM_DRAG_START)
+				uiDutyRamp = PWM_DRAG_START;
+			PWM_Duty(uiDutyRamp);	
+						
+		}*/
+			
+		if ((uiDutyRamp >= (uiDutyFinal - 5)) && (uiDutyRamp <= (uiDutyFinal + 5)))
+		{
+			state_motor = RUN;
+			_hchk_num = NUM_RUN;
+		}		
+	}	
+	
+
+}
+
+
+void Init_Vars(void)
+{
+	ucCommStep			= 0;
+	uiHallCnt			= 0;
+	state_motor 		= DRAG;
+	ucCommStep			= 0;
+	uiCommCycle 		= 0;
+	ucDragStep			= 0;
+	uiHallCnt			= 0;
+	uiDutyRamp			= PWM_DRAG_START;
+	uiDutyFinal 			= 800;
+	cc_start = 0;
 }

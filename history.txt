@@ -33,3 +33,7 @@
 -- 5V~ 12V startup OK
 -- add commutation delay dynamatic change smoothly
 -- at high speed, commutation must small enough
+
+180418b
+-- some mod.
+-- current not always the same power on/off test
