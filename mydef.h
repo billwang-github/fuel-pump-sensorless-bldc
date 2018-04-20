@@ -6,16 +6,14 @@
 
 //#define MSKMS_HW
 #define PWM_MAX 				800
-#define PWM_DRAG_START			100  // must greater ADC delay trigger time
+#define PWM_DRAG_START			200
 #define PWM_DRAG_END			PWM_MAX
-#define PWM_INC 				1
+#define PWM_INC 				2
 
 #define VCC						4.66
 #define RSEN					40  // mOhm
 #define ILIMIT					3 // A
-#define ILIM_DAC				ILIMIT * 44// (uint8)((ILIMIT * RSEN * 20 * 255) / 4650)
-#define ILIM_CC_DRAG			80 
-#define ILIM_CC_RAMP			40 
+#define ILIM_DAC				ILIMIT * 44// (uint8)((ILIMIT * RSEN * 20 * 255) / 4650) 
 
 #define NUM_DRAG				0x10
 #define NUM_RAMP				0x10
@@ -197,9 +195,9 @@ void TM3_Dly_Set(uint16 dly);
 void Hall_Int_Set(uint8 step);
 void Drag_Motor(void);
 void Commutation(void);
-void Duty_Rampup(void);
 
 boolean Uart_Tx(uint8 txdata);
+
 
 #endif
 

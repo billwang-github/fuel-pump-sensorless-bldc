@@ -15,10 +15,8 @@ extern uint8	state_motor;
 extern _bits	status;
 extern uint8	ucRxData;
 extern uint8	Ad_Is, Ad_Vdc, Ad_Vsp;
-extern uint16			uiDutyFinal  ; //period 800
-extern boolean cc_start;
 
-uint16 dly_comm , dly_comm_final;
+uint16			duty_max = PWM_MAX; //period 800
 uint8			i;
 
 const uint8 	cw_pattern[] =
@@ -85,14 +83,14 @@ void main()
 	{	
 		if (bNmsFlag)
 		{
-			bNmsFlag			= 0;			
-			/*
+			bNmsFlag			= 0;
+			
 			if (bRxData)
 			{
 				Uart_Tx(ucRxData);
 				Uart_Tx(' ');
 				bRxData = 0;
-			}*/
+			}
 		}		
 		FeedWatchDog();
 	}
@@ -116,25 +114,27 @@ void Drag_Motor(void)
 
 void Commutation(void)
 {
-		 
+	
+	uint16 dly_comm , dly_comm_final;
 	TO0 				= ~TO0;
 	INTEN_HALL			= 0;
 	ucDragTmr			= 0;	
 
-	
+
+	dly_comm_final = (uiHallPeriod >> 1);
+	if (dly_comm_final > 35)
+		dly_comm_final -= 25;
 	if (state_motor >= RUN)
-	{	/*	
-		dly_comm_final = (uiHallPeriod >> 1);
-		if (dly_comm_final > 30)
-			dly_comm_final -= 20;				
+	{				
 		if (dly_comm > dly_comm_final)
 			dly_comm--;
-		else if (dly_comm < dly_comm_final)
-			dly_comm++;	*/
-		dly_comm = 30;
+		else
+			dly_comm++;
+		//dly_comm = 10;
+		TO1 = 1;
 	}
 	else
-		dly_comm = 5;
+		dly_comm = 10;
 	
 #ifdef MSKMS_HW
 	TM0_Dly_Set(dly_comm);
@@ -228,15 +228,184 @@ void Commutation(void)
 #endif
 
 	if (ucCommStep++ >= 5)
-	{		
-		ucCommStep			= 0;				
+	{
+		ucCommStep			= 0;
+
 		if (uiCommCycle < 250)
-			uiCommCycle++;	
-		Duty_Rampup();			
+			uiCommCycle++;
+			
+		if (state_motor == RAMP)
+		{
+			//if (uiCommCycle > 20)
+			{
+				//TO1 				= ~TO1;
+				uiDutyRamp			+= PWM_INC;
+
+				if (uiDutyRamp >= PWM_DRAG_END)
+				{
+					state_motor 		= RUN;
+					_hchk_num			= NUM_RUN;
+					uiDutyRamp			= PWM_DRAG_END;
+				}
+
+				PWM_Duty(uiDutyRamp);
+			}
+		}
+		else if (state_motor == RUN)
+		{
+			
+		}			
 	}
+
+
 
 	FeedWatchDog();
 }
+
+void Init_PWM(void)
+{
+	// PWMC
+	_pwmms1 			= 0;						//0x:Edge-aligned mode				
+	_pwmms0 			= 0;						//10: Center-aligned mode 1
+
+	//11: Center-aligned mode 2
+	_pwmon				= 0;						// pwm on	
+	_pcks0				= 0;						// fpwm
+	_pcks1				= 0;
+	_pwmld				= 1;						// update prdr
+
+	// PWMCS
+	_pwmsuf 			= 1;						// dutr synchronous update request
+	_pwmsu				= 1;						//	dutr synchronous update enable
+	_pwmsv				= 1;						// duty written to dutr0~2		
+
+	// DUTR0, PRDR
+	_dutr0h 			= 0x00; 					// duty 0.1
+	_dutr0l 			= 0x00;
+	_prdrh				= 0x01; 					// 20kHz, 400	
+	_prdrl				= 0x90;
+
+	// MCF
+#ifdef MSKMS_HW
+	_mskms				= 0;						// 0:hardware 1:software
+
+#else
+
+	_mskms				= 1;
+#endif
+
+	_mpwms				= 1;						// non-complementary
+	_mpwe				= 1;						// output enable
+	_fmos				= 0;						// protect output selection
+	_pwms				= 1;						// top pwm output
+
+	// PWMME
+	_pwmme				= 0x00;
+
+	//PWMMD	
+	_pwmmd				= 0x00;
+
+	//DTS
+	_dtcks1 			= 1;						// fsys/8
+	_dtcks0 			= 1;
+
+	// ===== hall sensor decoder ====
+	//	INTEG0
+	_hsel				= 1;						// cmp
+	_intcs1 			= 0;						// diable edge triger interrupt
+	_intcs0 			= 0;
+	_intbs1 			= 0;
+	_intbs0 			= 0;
+	_intas1 			= 0;
+	_intas0 			= 0;
+	_integ0 			= 0B01000000;
+
+	//	HDCR
+	_ctm_sel1			= 0;						// TM select
+	_ctm_sel0			= 0;
+
+
+#ifdef MSKMS_HW
+	_hdly_msel			= 1;						// hall delay path enabled
+
+#else
+
+	_hdly_msel			= 0;						// hall delay path disabled
+#endif
+
+	_hals				= 1;						// 120 degree
+	_hdms				= 0;						// software decoder mode
+	_brke				= 0;						// brake mode
+	_frs				= 0;						//forward
+
+#ifdef MSKMS_HW
+	_hdcen				= 1;						//enable
+
+#else
+
+	_hdcen				= 0;						//disable
+#endif
+
+	// HDCD
+	_sha				= 0;
+	_shb				= 0;
+	_shc				= 0;
+
+	// HDCTn
+	// [SC,SB,SA] => [HAT,HAB,HBT,HBB,HCT,HCB]
+	_hdct0				= 0B00100100;				//SC SB SA(001) 		1
+	_hdct1				= 0B00100001;				//SC SB SA(011) 		3		
+	_hdct2				= 0B00001001;				//SC SB SA(010) 		2
+	_hdct3				= 0B00011000;				//SC SB SA(110) 		6
+	_hdct4				= 0B00010010;				//SC SB SA(100) 		4
+	_hdct5				= 0B00000110;				//SC SB SA(101) 		5	
+
+	_hdct6				= 0B00100100;				//SC SB SA(001) 		1
+	_hdct7				= 0B00100001;				//SC SB SA(011) 		3		
+	_hdct8				= 0B00001001;				//SC SB SA(010) 		2
+	_hdct9				= 0B00011000;				//SC SB SA(110) 		6
+	_hdct10 			= 0B00010010;				//SC SB SA(100) 		4
+	_hdct11 			= 0B00000110;				//SC SB SA(101) 		5	
+
+	// HCHK_NUM
+	_hchk_num			= NUM_DRAG; 				// noise filter check time
+
+	// HFN_MSEL
+	_hnf_en 			= 1;						// enable noise filter
+	_hfr_sel2			= 0;						// filter clock source
+	_hfr_sel1			= 1;
+	_hfr_sel0			= 1;
+
+	//====	Motor protection	====
+	// MPTC1
+	_pswd				= 0;						//software protection
+	_pswe				= 0;
+	_pswps				= 0;
+	
+	_ahlhe				= 0;
+	_ahlps				= 0;	
+	_ishe				= 1;
+	_isps				= 0;
+	
+	_capche				= 0;
+	_capcps				= 1;
+	_capohe				= 0;
+	_capops				= 1;
+	
+	_ocpse				= 1;
+
+	// MPTC2
+	_isps				= 1;
+	
+	// OCPS
+	_ocps = 0;
+	// I/O Init
+	//	
+	PWM_SET(0, 200);
+	_pwmon				= 1;
+
+}
+
 
 
 void Init_System(void)
@@ -425,151 +594,18 @@ void Init_Int(void)
 }
 
 
-void Init_PWM(void)
+
+void Init_Vars(void)
 {
-	// PWMC
-	_pwmms1 			= 0;						//0x:Edge-aligned mode				
-	_pwmms0 			= 0;						//10: Center-aligned mode 1
-
-	//11: Center-aligned mode 2
-	_pwmon				= 0;						// pwm on	
-	_pcks0				= 0;						// fpwm
-	_pcks1				= 0;
-	_pwmld				= 1;						// update prdr
-
-	// PWMCS
-	_pwmsuf 			= 1;						// dutr synchronous update request
-	_pwmsu				= 1;						//	dutr synchronous update enable
-	_pwmsv				= 1;						// duty written to dutr0~2		
-
-	// DUTR0, PRDR
-	_dutr0h 			= 0x00; 					// duty 0.1
-	_dutr0l 			= 0x00;
-	_prdrh				= 0x01; 					// 20kHz, 400	
-	_prdrl				= 0x90;
-
-	// MCF
-#ifdef MSKMS_HW
-	_mskms				= 0;						// 0:hardware 1:software
-
-#else
-
-	_mskms				= 1;
-#endif
-
-	_mpwms				= 1;						// non-complementary
-	_mpwe				= 1;						// output enable
-	_fmos				= 0;						// protect output selection
-	_pwms				= 1;						// top pwm output
-
-	// PWMME
-	_pwmme				= 0x00;
-
-	//PWMMD	
-	_pwmmd				= 0x00;
-
-	//DTS
-	_dtcks1 			= 1;						// fsys/8
-	_dtcks0 			= 1;
-
-	// ===== hall sensor decoder ====
-	//	INTEG0
-	_hsel				= 1;						// cmp
-	_intcs1 			= 0;						// diable edge triger interrupt
-	_intcs0 			= 0;
-	_intbs1 			= 0;
-	_intbs0 			= 0;
-	_intas1 			= 0;
-	_intas0 			= 0;
-	_integ0 			= 0B01000000;
-
-	//	HDCR
-	_ctm_sel1			= 0;						// TM select
-	_ctm_sel0			= 0;
-
-
-#ifdef MSKMS_HW
-	_hdly_msel			= 1;						// hall delay path enabled
-
-#else
-
-	_hdly_msel			= 0;						// hall delay path disabled
-#endif
-
-	_hals				= 1;						// 120 degree
-	_hdms				= 0;						// software decoder mode
-	_brke				= 0;						// brake mode
-	_frs				= 0;						//forward
-
-#ifdef MSKMS_HW
-	_hdcen				= 1;						//enable
-
-#else
-
-	_hdcen				= 0;						//disable
-#endif
-
-	// HDCD
-	_sha				= 0;
-	_shb				= 0;
-	_shc				= 0;
-
-	// HDCTn
-	// [SC,SB,SA] => [HAT,HAB,HBT,HBB,HCT,HCB]
-	_hdct0				= 0B00100100;				//SC SB SA(001) 		1
-	_hdct1				= 0B00100001;				//SC SB SA(011) 		3		
-	_hdct2				= 0B00001001;				//SC SB SA(010) 		2
-	_hdct3				= 0B00011000;				//SC SB SA(110) 		6
-	_hdct4				= 0B00010010;				//SC SB SA(100) 		4
-	_hdct5				= 0B00000110;				//SC SB SA(101) 		5	
-
-	_hdct6				= 0B00100100;				//SC SB SA(001) 		1
-	_hdct7				= 0B00100001;				//SC SB SA(011) 		3		
-	_hdct8				= 0B00001001;				//SC SB SA(010) 		2
-	_hdct9				= 0B00011000;				//SC SB SA(110) 		6
-	_hdct10 			= 0B00010010;				//SC SB SA(100) 		4
-	_hdct11 			= 0B00000110;				//SC SB SA(101) 		5	
-
-	// HCHK_NUM
-	_hchk_num			= NUM_DRAG; 				// noise filter check time
-
-	// HFN_MSEL
-	_hnf_en 			= 1;						// enable noise filter
-	_hfr_sel2			= 0;						// filter clock source
-	_hfr_sel1			= 1;
-	_hfr_sel0			= 1;
-
-	//====	Motor protection	====
-	// MPTC1
-	_pswd				= 0;						//software protection
-	_pswe				= 0;
-	_pswps				= 0;
-	
-	_ahlhe				= 0;
-	_ahlps				= 0;	
-	_ishe				= 1;
-	_isps				= 0;
-	
-	_capche				= 0;
-	_capcps				= 1;
-	_capohe				= 0;
-	_capops				= 1;
-	
-	_ocpse				= 1;
-
-	// MPTC2
-	_isps				= 1;
-	
-	// OCPS
-	_ocps = 0;
-	// I/O Init
-	//	
-	PWM_SET(0, 200);
-	_pwmon				= 1;
-
+	ucCommStep			= 0;
+	uiHallCnt			= 0;
+	state_motor 		= DRAG;
+	ucCommStep			= 0;
+	uiCommCycle 		= 0;
+	ucDragStep			= 0;
+	uiHallCnt			= 0;
+	uiDutyRamp			= PWM_DRAG_START;
 }
-
-
 
 
 void Init_OCP(uint8 idata) // idata = i * R * 1020 
@@ -624,7 +660,7 @@ void Init_ADC(uint8 res)
 	Adc_ch_sel1(2, ADC_VSP);
 
 	// ADDL, delay time, dt=1us/16
-	_addl = 48;
+	_addl = 160;
 	// ADBYPS
 	_ugb_on 			= 1;						// buffer on
 
@@ -806,6 +842,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms1 			= 0;
 		_prdrh				= 0x03; 				// 20kHz, 800	
 		_prdrl				= 0x20;
+		duty_max			= PWM_MAX;
 	}
 	else if (mode == 1)
 	{
@@ -813,6 +850,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms0 			= 0;
 		_prdrh				= 0x01; 				// 20kHz, 400	
 		_prdrl				= 0x90;
+		duty_max			= PWM_MAX >> 1;
 	}
 	else 
 	{
@@ -820,6 +858,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 		_pwmms0 			= 1;
 		_prdrh				= 0x01; 				// 20kHz, 400	
 		_prdrl				= 0x90;
+		duty_max			= PWM_MAX >> 1;
 	}
 
 	if (mode < 2)
@@ -829,7 +868,7 @@ void PWM_SET(uint8 mode, uint16 duty)
 	}
 	else 
 	{
-		duty				= PWM_MAX - duty;
+		duty				= duty_max - duty;
 		_dutr0h 			= (uint8) (duty >> 8);
 		_dutr0l 			= (uint8) (duty & 0xFF);
 	}
@@ -971,64 +1010,4 @@ boolean Uart_Tx(uint8 txdata)
 
 	_txr_rxr			= txdata;
 	return 0;
-}
-
-
-void Duty_Rampup(void)
-{
-	if ((state_motor >= RAMP) )//&& (uiCommCycle >=3))
-	{
-		TO1 				= ~TO1;
-		//if (uiCommCycle > 20)
-		//if (Ad_Is <= ILIM_CC_RAMP)
-		{
-
-			if (uiDutyRamp < uiDutyFinal) 
-			{
-				uiDutyRamp			+= PWM_INC;
-				if (uiDutyRamp >= uiDutyFinal)
-					uiDutyRamp = uiDutyFinal;
-				PWM_Duty(uiDutyRamp);
-			}
-			else if (uiDutyRamp > uiDutyFinal)
-			{			
-				uiDutyRamp			-= PWM_INC;
-				if (uiDutyRamp <= PWM_DRAG_START)
-					uiDutyRamp = PWM_DRAG_START;
-				PWM_Duty(uiDutyRamp);					
-			}			
-		}
-		/*else
-		{	
-					
-			uiDutyRamp			-= PWM_INC;
-			if (uiDutyRamp <= PWM_DRAG_START)
-				uiDutyRamp = PWM_DRAG_START;
-			PWM_Duty(uiDutyRamp);	
-						
-		}*/
-			
-		if ((uiDutyRamp >= (uiDutyFinal - 5)) && (uiDutyRamp <= (uiDutyFinal + 5)))
-		{
-			state_motor = RUN;
-			_hchk_num = NUM_RUN;
-		}		
-	}	
-	
-
-}
-
-
-void Init_Vars(void)
-{
-	ucCommStep			= 0;
-	uiHallCnt			= 0;
-	state_motor 		= DRAG;
-	ucCommStep			= 0;
-	uiCommCycle 		= 0;
-	ucDragStep			= 0;
-	uiHallCnt			= 0;
-	uiDutyRamp			= PWM_DRAG_START;
-	uiDutyFinal 			= 800;
-	cc_start = 0;
 }

@@ -23,9 +23,7 @@ uint8			ucRxData = 0;
 
 uint8			Ad_Is, Ad_Vdc, Ad_Vsp;
 
-uint16			uiDutyFinal ;
 
-boolean 		cc_start = 0;
 
 DEFINE_ISR(ISR_HALL, 0x04);
 void ISR_HALL(void)
@@ -51,6 +49,7 @@ void ISR_HALL(void)
 	}
 	else 
 	{
+
 		if (uiCommCycle == 2)
 		{
 			state_motor 		= RAMP;
@@ -146,7 +145,7 @@ void ISR_Int15(void)
 		if (ucCount1ms >= 1)
 		{
 			ucCount1ms			= 0;
-			bNmsFlag			= 1;			
+			bNmsFlag			= 1;
 		}
 		_tbf				= 0;
 	}
@@ -175,33 +174,25 @@ DEFINE_ISR(ISR_ADC, 0x20);
 void ISR_ADC(void)
 {
 	static boolean num;
-
 	Adc_Read_Auto();
-	Uart_Tx(Ad_Is);	
 	
-	// soft start the current to CC mode
-	if ((state_motor <= DRAG) && (uiCommCycle == 0) && (ucCommStep <= 2) && (ucDragTmr >= 2))
-		cc_start = 1;
-		
-	if (cc_start)
+	if ((uiCommCycle == 0) && (ucCommStep == 1) && (ucDragTmr >= 2))
 	{
 		//TO1 = ~TO1;
-		if (Ad_Is < ILIM_CC_DRAG)
+		if (Ad_Is < 70)
 		{	
-			uiDutyRamp +=1;
-			if (uiDutyRamp >= uiDutyFinal)
-			uiDutyRamp = uiDutyFinal;
-				
+			if (uiDutyRamp < 700)
+				uiDutyRamp +=2;
 		}
-		else if (Ad_Is > ILIM_CC_DRAG)
+		else
 		{
-			if (uiDutyRamp >= PWM_DRAG_START)
-				uiDutyRamp -=1;	
+			if (uiDutyRamp > PWM_DRAG_START)
+				uiDutyRamp -=2;	
 		}
 		PWM_Duty(uiDutyRamp);
-		
 	}
-		
+	
+	Uart_Tx(Ad_Is);	
 	_iseocb = 0;
 	_eocb	= 0;		
 	_isaeocf = 0;

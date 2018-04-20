@@ -31,9 +31,14 @@
 
 180418a
 -- 5V~ 12V startup OK
--- add commutation delay dynamatic change smoothly
+-- add commutation delay dynamic change smoothly
 -- at high speed, commutation must small enough
 
 180418b
--- some mod.
--- current not always the same power on/off test
+-- test start current cc control, successful
+-- cancel commutation delay dynamic change smoothly because of high voltage unstable
+
+180419a
+-- discard 180418b
+-- modify from 180418a
+-- modify OCP => 3A
